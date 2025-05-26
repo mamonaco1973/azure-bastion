@@ -14,8 +14,8 @@ resource "random_string" "key_vault_suffix" {
 resource "azurerm_key_vault" "credentials_key_vault" {
   name                        = "creds-kv-${random_string.key_vault_suffix.result}"  
                                    # Dynamically generate a unique Key Vault name using the random string
-  resource_group_name         = var.project_resource_group              
-                                   # Place the Key Vault inside the existing "packer_rg" resource group
+  resource_group_name         = azurerm_resource_group.project_rg.name              
+                                   # Place the Key Vault inside the existing resource group
   location                    = var.project_location             
                                    # Deploy in the same region as the resource group
   sku_name                    = "standard"                                            

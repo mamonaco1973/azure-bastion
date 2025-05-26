@@ -2,44 +2,53 @@
 # VIRTUAL NETWORK CONFIGURATION
 #############################################
 
-# Create a virtual network to contain subnets for apps and bastion
+# -------------------------------------------------------------------------------------------------
+# CREATE A VIRTUAL NETWORK (VNET) TO CONTAIN BOTH APPLICATION AND BASTION SUBNETS
+# -------------------------------------------------------------------------------------------------
 resource "azurerm_virtual_network" "project-vnet" {
-  name                = var.project_vnet                              # Name of the virtual network (VNet)
-  address_space       = ["10.0.0.0/23"]                               # IP address range for the entire VNet
-  location            = var.project_location                          # Region where the VNet will be deployed
-  resource_group_name = azurerm_resource_group.project_rg.name        # Resource group to place the VNet into
+  name                = var.project_vnet                               # VNet name (passed as variable)
+  address_space       = ["10.0.0.0/23"]                                 # Total address range for all subnets (512 IPs)
+  location            = var.project_location                            # Azure region for VNet
+  resource_group_name = azurerm_resource_group.project_rg.name          # Target resource group
 }
 
-# Define the subnet for application workloads (e.g., VM, container)
+# -------------------------------------------------------------------------------------------------
+# DEFINE A SUBNET FOR VIRTUAL MACHINES / APPLICATION WORKLOADS
+# -------------------------------------------------------------------------------------------------
 resource "azurerm_subnet" "vm-subnet" {
-  name                 = var.project_subnet                           # Subnet name (for app workloads)
-  resource_group_name  = azurerm_resource_group.project_rg.name       # Must match the VNet’s RG
-  virtual_network_name = azurerm_virtual_network.project-vnet.name    # Parent virtual network
-  address_prefixes     = ["10.0.0.0/25"]                              # IP range (first half of VNet CIDR block)
+  name                 = var.project_subnet                             # Subnet name (variable input)
+  resource_group_name  = azurerm_resource_group.project_rg.name         # Must match the VNet’s RG
+  virtual_network_name = azurerm_virtual_network.project-vnet.name      # Attach to parent VNet
+  address_prefixes     = ["10.0.0.0/25"]                                 # Lower half of VNet CIDR (128 IPs)
 }
 
-# Define the dedicated subnet for Azure Bastion (must use reserved name)
+# -------------------------------------------------------------------------------------------------
+# DEFINE A DEDICATED SUBNET FOR AZURE BASTION
+# REQUIRED NAME: MUST BE EXACTLY "AzureBastionSubnet"
+# -------------------------------------------------------------------------------------------------
 resource "azurerm_subnet" "bastion-subnet" {
-  name                 = "AzureBastionSubnet"                         # Azure requires this exact name for Bastion
-  resource_group_name  = azurerm_resource_group.project_rg.name       # Resource group
-  virtual_network_name = azurerm_virtual_network.project-vnet.name    # Parent VNet
-  address_prefixes     = ["10.0.1.0/25"]                              # IP range (second half of VNet CIDR block)
+  name                 = "AzureBastionSubnet"                           # This name is MANDATORY for Bastion
+  resource_group_name  = azurerm_resource_group.project_rg.name
+  virtual_network_name = azurerm_virtual_network.project-vnet.name
+  address_prefixes     = ["10.0.1.0/25"]                                 # Upper half of VNet CIDR (128 IPs)
 }
 
 #############################################
-# NETWORK SECURITY GROUP FOR APP SUBNET
+# NETWORK SECURITY GROUP (NSG) FOR APP SUBNET
 #############################################
 
-# Create NSG to control inbound traffic to the application subnet
+# -------------------------------------------------------------------------------------------------
+# CREATE NSG TO CONTROL INBOUND TRAFFIC TO THE VM SUBNET
+# -------------------------------------------------------------------------------------------------
 resource "azurerm_network_security_group" "vm-nsg" {
-  name                = "vm-nsg"                                       # Name of NSG
-  location            = var.project_location                           # Region
-  resource_group_name = azurerm_resource_group.project_rg.name         # Resource group
+  name                = "vm-nsg"
+  location            = var.project_location
+  resource_group_name = azurerm_resource_group.project_rg.name
 
-  # Inbound SSH rule - allow port 22 from anywhere (customize as needed)
+  # -------- Allow SSH access --------
   security_rule {
     name                       = "Allow-SSH"
-    priority                   = 1000
+    priority                   = 1000                                    # Lower = higher priority
     direction                  = "Inbound"
     access                     = "Allow"
     protocol                   = "Tcp"
@@ -49,7 +58,7 @@ resource "azurerm_network_security_group" "vm-nsg" {
     destination_address_prefix = "*"
   }
 
-  # Inbound RDP rule - allow port 3389 (for Windows VMs if needed)
+  # -------- Allow RDP (for Windows VMs) --------
   security_rule {
     name                       = "Allow-RDP"
     priority                   = 1001
@@ -62,7 +71,7 @@ resource "azurerm_network_security_group" "vm-nsg" {
     destination_address_prefix = "*"
   }
 
-  # Inbound HTTP rule - allow port 80 for web traffic
+  # -------- Allow HTTP (for web servers) --------
   security_rule {
     name                       = "Allow-HTTP"
     priority                   = 1002
@@ -80,13 +89,15 @@ resource "azurerm_network_security_group" "vm-nsg" {
 # NETWORK SECURITY GROUP FOR BASTION SUBNET
 #############################################
 
-# NSG tailored for Bastion subnet - enables required traffic
+# -------------------------------------------------------------------------------------------------
+# CREATE NSG TO ALLOW REQUIRED TRAFFIC FOR AZURE BASTION SERVICE
+# -------------------------------------------------------------------------------------------------
 resource "azurerm_network_security_group" "bastion-nsg" {
   name                = "bastion-nsg"
   location            = var.project_location
   resource_group_name = azurerm_resource_group.project_rg.name
 
-  # Required by Azure Bastion for communication with Azure infrastructure
+  # -------- REQUIRED: Allow inbound HTTPS from GatewayManager (Azure internal) --------
   security_rule {
     name                       = "GatewayManager"
     priority                   = 1001
@@ -95,11 +106,11 @@ resource "azurerm_network_security_group" "bastion-nsg" {
     protocol                   = "Tcp"
     source_port_range          = "*"
     destination_port_range     = "443"
-    source_address_prefix      = "GatewayManager"                      # Azure internal service tag
+    source_address_prefix      = "GatewayManager"
     destination_address_prefix = "*"
   }
 
-  # Required inbound access from Internet to Bastion’s public IP (HTTPS)
+  # -------- REQUIRED: Allow inbound HTTPS from public internet --------
   security_rule {
     name                       = "Internet-Bastion-PublicIP"
     priority                   = 1002
@@ -112,7 +123,7 @@ resource "azurerm_network_security_group" "bastion-nsg" {
     destination_address_prefix = "*"
   }
 
-  # Outbound access from Bastion to VMs (port 22 and 3389 only)
+  # -------- REQUIRED: Allow outbound SSH & RDP to private VMs --------
   security_rule {
     name                       = "OutboundVirtualNetwork"
     priority                   = 1001
@@ -120,12 +131,12 @@ resource "azurerm_network_security_group" "bastion-nsg" {
     access                     = "Allow"
     protocol                   = "Tcp"
     source_port_range          = "*"
-    destination_port_ranges    = ["22", "3389"]                         # Required for SSH/RDP
+    destination_port_ranges    = ["22", "3389"]
     source_address_prefix      = "*"
-    destination_address_prefix = "VirtualNetwork"                      # Internal traffic only
+    destination_address_prefix = "VirtualNetwork"                      # Internal only
   }
 
-  # Outbound access to Azure infrastructure (HTTPS)
+  # -------- REQUIRED: Allow outbound HTTPS to Azure infrastructure --------
   security_rule {
     name                       = "OutboundToAzureCloud"
     priority                   = 1002
@@ -135,46 +146,66 @@ resource "azurerm_network_security_group" "bastion-nsg" {
     source_port_range          = "*"
     destination_port_range     = "443"
     source_address_prefix      = "*"
-    destination_address_prefix = "AzureCloud"                          # Azure internal control plane
+    destination_address_prefix = "AzureCloud"
   }
 }
 
 #############################################
-# ASSOCIATE NSGs TO THEIR SUBNETS
+# NSG TO SUBNET ASSOCIATIONS
 #############################################
 
-# Bind application subnet to its NSG
+# -------------------------------------------------------------------------------------------------
+# BIND THE VM SUBNET TO ITS SECURITY GROUP
+# -------------------------------------------------------------------------------------------------
 resource "azurerm_subnet_network_security_group_association" "vm-nsg-assoc" {
   subnet_id                 = azurerm_subnet.vm-subnet.id
   network_security_group_id = azurerm_network_security_group.vm-nsg.id
 }
 
-# Bind Bastion subnet to its NSG
+# -------------------------------------------------------------------------------------------------
+# BIND THE BASTION SUBNET TO ITS SECURITY GROUP
+# -------------------------------------------------------------------------------------------------
 resource "azurerm_subnet_network_security_group_association" "bastion-nsg-assoc" {
   subnet_id                 = azurerm_subnet.bastion-subnet.id
   network_security_group_id = azurerm_network_security_group.bastion-nsg.id
 }
 
+#############################################
+# NAT GATEWAY CONFIGURATION FOR OUTBOUND ACCESS
+#############################################
+
+# -------------------------------------------------------------------------------------------------
+# CREATE A NAT GATEWAY TO ENABLE OUTBOUND INTERNET ACCESS FROM PRIVATE VMs
+# -------------------------------------------------------------------------------------------------
 resource "azurerm_nat_gateway" "vm-nat-gateway" {
   name                = "vm-nat-gateway"
   location            = var.project_location
   resource_group_name = azurerm_resource_group.project_rg.name
-  sku_name            = "Standard"
+  sku_name            = "Standard"                                      # Required SKU for production-grade NAT
 }
 
+# -------------------------------------------------------------------------------------------------
+# STATIC PUBLIC IP FOR THE NAT GATEWAY
+# -------------------------------------------------------------------------------------------------
 resource "azurerm_public_ip" "vm_nat_public_ip" {
   name                = "vm-nat-public-ip"
   location            = var.project_location
   resource_group_name = azurerm_resource_group.project_rg.name
-  allocation_method   = "Static"
-  sku                 = "Standard"
+  allocation_method   = "Static"                                        # Ensures predictable public IP
+  sku                 = "Standard"                                      # Required for use with NAT Gateway
 }
 
+# -------------------------------------------------------------------------------------------------
+# ASSOCIATE THE PUBLIC IP TO THE NAT GATEWAY
+# -------------------------------------------------------------------------------------------------
 resource "azurerm_nat_gateway_public_ip_association" "vm_nat_assoc" {
-  nat_gateway_id = azurerm_nat_gateway.vm-nat-gateway.id
-  public_ip_address_id = azurerm_public_ip.vm_nat_public_ip.id
+  nat_gateway_id        = azurerm_nat_gateway.vm-nat-gateway.id
+  public_ip_address_id  = azurerm_public_ip.vm_nat_public_ip.id
 }
 
+# -------------------------------------------------------------------------------------------------
+# ATTACH THE NAT GATEWAY TO THE VM SUBNET FOR OUTBOUND ACCESS
+# -------------------------------------------------------------------------------------------------
 resource "azurerm_subnet_nat_gateway_association" "vm_subnet_nat" {
   subnet_id      = azurerm_subnet.vm-subnet.id
   nat_gateway_id = azurerm_nat_gateway.vm-nat-gateway.id
