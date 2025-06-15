@@ -13,7 +13,7 @@ We’ll build a simple, secure environment with:
 All VMs are deployed without public IPs. Bastion enables secure, browser-based RDP/SSH access over the Azure portal without exposing your VMs to the internet.
 
  ![diagram](azure-bastion.png)
-
+ 
 ## Understanding Azure Bastion Deployment
 
 Azure Bastion is a fully managed PaaS service that lets you securely connect to your Azure VMs through the Azure Portal using RDP or SSH — without exposing the VMs to the public internet.
