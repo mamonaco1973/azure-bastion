@@ -34,7 +34,7 @@ address_prefixes = ["10.10.254.0/24"]
 
 > **Important:** The name must **exactly** be `AzureBastionSubnet` or Azure will reject the deployment.
 
-Additional subnets (e.g., `vm-subnet`) host the actual virtual machines.
+Additional subnets (e.g., `vm-subnet`) host the actual virtual machines. The CIDR block for `AzureBastionSubnet` needs to have at least 64 IP addresses.
 
 ### 3. **Provision the Bastion Host**
 - The Bastion host gets a **public IP** (used only by you via the Azure Portal).
