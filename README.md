@@ -56,23 +56,6 @@ resource "azurerm_bastion_host" "bastion" {
 }
 ```
 
-### 4. **Network Security Group (NSG) Requirements**
-
-If you associate an NSG with the Bastion subnet, you **must** explicitly allow all traffic Bastion needs to function. These rules are required:
-
-#### ✅ Required Inbound Rules
-| Name                         | Direction | Source         | Port | Destination | Description                                     |
-|------------------------------|-----------|----------------|------|-------------|-------------------------------------------------|
-| `GatewayManager`             | Inbound   | `GatewayManager` | 443  | `*`         | Required for Azure Bastion platform operations |
-| `Internet-Bastion-PublicIP` | Inbound   | `*`            | 443  | `*`         | Allows users to connect via Azure Portal       |
-
-#### ✅ Required Outbound Rules
-| Name                     | Direction | Destination    | Ports       | Description                                          |
-|--------------------------|-----------|----------------|-------------|------------------------------------------------------|
-| `OutboundVirtualNetwork` | Outbound  | `VirtualNetwork` | 22, 3389    | Allows Bastion to SSH/RDP into private VMs          |
-| `OutboundToAzureCloud`   | Outbound  | `AzureCloud`     | 443         | Required for platform updates and connectivity      |
-
-
 ## Prerequisites
 
 * [An Azure Account](https://portal.azure.com/)

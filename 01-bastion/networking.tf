@@ -37,9 +37,6 @@ resource "azurerm_subnet" "bastion-subnet" {
 # NETWORK SECURITY GROUP (NSG) FOR APP SUBNET
 #############################################
 
-# -------------------------------------------------------------------------------------------------
-# CREATE NSG TO CONTROL INBOUND TRAFFIC TO THE VM SUBNET
-# -------------------------------------------------------------------------------------------------
 resource "azurerm_network_security_group" "vm-nsg" {
   name                = "vm-nsg"
   location            = var.project_location
@@ -70,96 +67,55 @@ resource "azurerm_network_security_group" "vm-nsg" {
     source_address_prefix      = "*"
     destination_address_prefix = "*"
   }
-
-  # -------- Allow HTTP (for web servers) --------
-  security_rule {
-    name                       = "Allow-HTTP"
-    priority                   = 1002
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "80"
-    source_address_prefix      = "*"
-    destination_address_prefix = "*"
-  }
 }
 
-#############################################
-# NETWORK SECURITY GROUP FOR BASTION SUBNET
-#############################################
+##################################################
+# NETWORK SECURITY GROUP (NSG) FOR BASTION SUBNET
+##################################################
 
-# -------------------------------------------------------------------------------------------------
-# CREATE NSG TO ALLOW REQUIRED TRAFFIC FOR AZURE BASTION SERVICE
-# -------------------------------------------------------------------------------------------------
 resource "azurerm_network_security_group" "bastion-nsg" {
   name                = "bastion-nsg"
-  location            = var.project_location
-  resource_group_name = azurerm_resource_group.project_rg.name
+  location            = azurerm_resource_group.bastion-rg.location
+  resource_group_name = azurerm_resource_group.bastion-rg.name
 
-  # -------- REQUIRED: Allow inbound HTTPS from GatewayManager (Azure internal) --------
   security_rule {
-    name                       = "GatewayManager"
-    priority                   = 1001
+    name                       = "AllowAzureBastionInbound"
+    priority                   = 100
     direction                  = "Inbound"
     access                     = "Allow"
     protocol                   = "Tcp"
-    source_port_range          = "*"
+    source_address_prefix      = "Internet"
     destination_port_range     = "443"
-    source_address_prefix      = "GatewayManager"
+    source_port_range          = "*"
     destination_address_prefix = "*"
   }
 
-  # -------- REQUIRED: Allow inbound HTTPS from public internet --------
   security_rule {
-    name                       = "Internet-Bastion-PublicIP"
-    priority                   = 1002
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "443"
-    source_address_prefix      = "*"
-    destination_address_prefix = "*"
-  }
-
-  # -------- REQUIRED: Allow outbound SSH & RDP to private VMs --------
-  security_rule {
-    name                       = "OutboundVirtualNetwork"
-    priority                   = 1001
+    name                       = "AllowBastionToVMs"
+    priority                   = 110
     direction                  = "Outbound"
     access                     = "Allow"
     protocol                   = "Tcp"
-    source_port_range          = "*"
     destination_port_ranges    = ["22", "3389"]
     source_address_prefix      = "*"
-    destination_address_prefix = "VirtualNetwork"                      # Internal only
+    source_port_range          = "*"
+    destination_address_prefix = "*"
   }
 
-  # -------- REQUIRED: Allow outbound HTTPS to Azure infrastructure --------
+  # Optional: allow traffic to Azure platform services
   security_rule {
-    name                       = "OutboundToAzureCloud"
-    priority                   = 1002
+    name                       = "AllowAzureBastionPlatform"
+    priority                   = 120
     direction                  = "Outbound"
     access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "443"
+    protocol                   = "*"
     source_address_prefix      = "*"
     destination_address_prefix = "AzureCloud"
+    destination_port_range     = "*"
+    source_port_range          = "*"
   }
-}
 
-#############################################
-# NSG TO SUBNET ASSOCIATIONS
-#############################################
-
-# -------------------------------------------------------------------------------------------------
-# BIND THE VM SUBNET TO ITS SECURITY GROUP
-# -------------------------------------------------------------------------------------------------
-resource "azurerm_subnet_network_security_group_association" "vm-nsg-assoc" {
-  subnet_id                 = azurerm_subnet.vm-subnet.id
-  network_security_group_id = azurerm_network_security_group.vm-nsg.id
+  depends_on = [ azurerm_bastion_host.bastion-host ]
 }
 
 # -------------------------------------------------------------------------------------------------
@@ -168,6 +124,15 @@ resource "azurerm_subnet_network_security_group_association" "vm-nsg-assoc" {
 resource "azurerm_subnet_network_security_group_association" "bastion-nsg-assoc" {
   subnet_id                 = azurerm_subnet.bastion-subnet.id
   network_security_group_id = azurerm_network_security_group.bastion-nsg.id
+  depends_on = [ azurerm_bastion_host.bastion-host ]
+}
+
+# -------------------------------------------------------------------------------------------------
+# BIND THE VM SUBNET TO ITS SECURITY GROUP
+# -------------------------------------------------------------------------------------------------
+resource "azurerm_subnet_network_security_group_association" "vm-nsg-assoc" {
+  subnet_id                 = azurerm_subnet.vm-subnet.id
+  network_security_group_id = azurerm_network_security_group.vm-nsg.id
 }
 
 #############################################
