@@ -73,13 +73,13 @@ resource "azurerm_network_security_group" "vm-nsg" {
 # NETWORK SECURITY GROUP (NSG) FOR BASTION SUBNET
 ##################################################
 
-resource "azurerm_network_security_group" "bastion-nsg" {
+resource "azurerm_network_security_group" "bastion_nsg" {
   name                = "bastion-nsg"
-  location            = var.project_location
-  resource_group_name = azurerm_resource_group.project_rg.name
+  location            = azurerm_resource_group.bastion_rg.location
+  resource_group_name = azurerm_resource_group.bastion_rg.name
 
   security_rule {
-    name                       = "AllowAzureBastionInbound"
+    name                       = "AllowHttpsInbound"
     priority                   = 100
     direction                  = "Inbound"
     access                     = "Allow"
@@ -91,8 +91,20 @@ resource "azurerm_network_security_group" "bastion-nsg" {
   }
 
   security_rule {
-    name                       = "AllowBastionToVMs"
+    name                       = "AllowBastionDataPlaneInbound"
     priority                   = 110
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_address_prefix      = "VirtualNetwork"
+    destination_port_ranges    = ["8080", "5701"]
+    source_port_range          = "*"
+    destination_address_prefix = "*"
+  }
+
+  security_rule {
+    name                       = "AllowSSHAndRDPOutbound"
+    priority                   = 120
     direction                  = "Outbound"
     access                     = "Allow"
     protocol                   = "Tcp"
@@ -102,19 +114,17 @@ resource "azurerm_network_security_group" "bastion-nsg" {
     destination_address_prefix = "*"
   }
 
-  # Optional: allow traffic to Azure platform services
   security_rule {
-    name                       = "AllowAzureBastionPlatform"
-    priority                   = 120
+    name                       = "AllowAzurePlatformOutbound"
+    priority                   = 130
     direction                  = "Outbound"
     access                     = "Allow"
     protocol                   = "*"
-    source_address_prefix      = "*"
-    destination_address_prefix = "AzureCloud"
     destination_port_range     = "*"
     source_port_range          = "*"
+    source_address_prefix      = "*"
+    destination_address_prefix = "AzureCloud"
   }
-
   depends_on = [ azurerm_bastion_host.bastion-host ]
 }
 

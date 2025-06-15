@@ -39,7 +39,7 @@ Additional subnets (e.g., `vm-subnet`) host the actual virtual machines.
 ### 3. **Provision the Bastion Host**
 - The Bastion host gets a **public IP** (used only by you via the Azure Portal).
 - It's deployed into the `AzureBastionSubnet`.
-- The VMs do **not** need public IPs or inbound rules.
+- The VMs do **not** need public IPs
 
 ```hcl
 resource "azurerm_bastion_host" "bastion" {
