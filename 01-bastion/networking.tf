@@ -75,8 +75,8 @@ resource "azurerm_network_security_group" "vm-nsg" {
 
 resource "azurerm_network_security_group" "bastion_nsg" {
   name                = "bastion-nsg"
-  location            = azurerm_resource_group.bastion_rg.location
-  resource_group_name = azurerm_resource_group.bastion_rg.name
+  location            = var.project_location
+  resource_group_name = azurerm_resource_group.project_rg.name
 
   security_rule {
     name                       = "AllowHttpsInbound"
@@ -121,7 +121,7 @@ resource "azurerm_network_security_group" "bastion_nsg" {
 # -------------------------------------------------------------------------------------------------
 resource "azurerm_subnet_network_security_group_association" "bastion-nsg-assoc" {
   subnet_id                 = azurerm_subnet.bastion-subnet.id
-  network_security_group_id = azurerm_network_security_group.bastion-nsg.id
+  network_security_group_id = azurerm_network_security_group.bastion_nsg.id
   depends_on = [ azurerm_bastion_host.bastion-host ]
 }
 
