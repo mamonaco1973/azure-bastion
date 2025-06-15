@@ -75,8 +75,8 @@ resource "azurerm_network_security_group" "vm-nsg" {
 
 resource "azurerm_network_security_group" "bastion-nsg" {
   name                = "bastion-nsg"
-  location            = azurerm_resource_group.bastion-rg.location
-  resource_group_name = azurerm_resource_group.bastion-rg.name
+  location            = var.project_location
+  resource_group_name = azurerm_resource_group.project_rg.name
 
   security_rule {
     name                       = "AllowAzureBastionInbound"
