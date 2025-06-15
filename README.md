@@ -56,6 +56,55 @@ resource "azurerm_bastion_host" "bastion" {
 }
 ```
 
+### 4. **Network Security Group (NSG) Requirements**
+While Azure Bastion will function without specifying a Network Security Group (NSG) for the `AzureBastionSubnet`, associating an NSG is a recommended best practice to secure traffic to and from the Bastion host. If you choose to apply an NSG, specific inbound and outbound rules are required to ensure Azure Bastion operates correctly. Omitting these rules may disrupt connectivity or prevent Bastion from functioning.
+
+```hcl
+resource "azurerm_network_security_group" "bastion_nsg" {
+  name                = "bastion-nsg"
+  location            = azurerm_resource_group.bastion_rg.location
+  resource_group_name = azurerm_resource_group.bastion_rg.name
+
+  security_rule {
+    name                       = "AllowHttpsInbound"
+    priority                   = 100
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_address_prefix      = "Internet"
+    destination_port_range     = "443"
+    source_port_range          = "*"
+    destination_address_prefix = "*"
+  }
+
+  security_rule {
+    name                       = "AllowSSHAndRDPOutbound"
+    priority                   = 120
+    direction                  = "Outbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    destination_port_ranges    = ["22", "3389"]
+    source_address_prefix      = "*"
+    source_port_range          = "*"
+    destination_address_prefix = "*"
+  }
+
+  security_rule {
+    name                       = "AllowAzurePlatformOutbound"
+    priority                   = 130
+    direction                  = "Outbound"
+    access                     = "Allow"
+    protocol                   = "*"
+    destination_port_range     = "*"
+    source_port_range          = "*"
+    source_address_prefix      = "*"
+    destination_address_prefix = "AzureCloud"
+  }
+  depends_on = [ azurerm_bastion_host.bastion-host ]
+}
+```
+
+
 ## Prerequisites
 
 * [An Azure Account](https://portal.azure.com/)

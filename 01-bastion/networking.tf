@@ -91,18 +91,6 @@ resource "azurerm_network_security_group" "bastion_nsg" {
   }
 
   security_rule {
-    name                       = "AllowBastionDataPlaneInbound"
-    priority                   = 110
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_address_prefix      = "VirtualNetwork"
-    destination_port_ranges    = ["8080", "5701"]
-    source_port_range          = "*"
-    destination_address_prefix = "*"
-  }
-
-  security_rule {
     name                       = "AllowSSHAndRDPOutbound"
     priority                   = 120
     direction                  = "Outbound"
