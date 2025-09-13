@@ -57,5 +57,4 @@ resource "azurerm_windows_virtual_machine" "windows-vm" {
   # ENABLE VM-SPECIFIC FEATURES
   # -----------------------------
   provision_vm_agent        = true                                  # REQUIRED for VM extensions, diagnostics, and automation
-  enable_automatic_updates  = true                                  # Let Windows handle patching automatically
 }
