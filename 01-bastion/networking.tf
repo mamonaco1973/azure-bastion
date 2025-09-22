@@ -68,6 +68,19 @@ resource "azurerm_network_security_group" "vm-nsg" {
     source_address_prefix      = "*"
     destination_address_prefix = "*"
   }
+
+  # Outbound Rules
+  security_rule {
+    name                       = "Allow-All-Internet-Outbound"
+    priority                   = 2001
+    direction                  = "Outbound"
+    access                     = "Allow"
+    protocol                   = "*"
+    source_port_range          = "*"
+    destination_port_range     = "*"
+    source_address_prefix      = "*"
+    destination_address_prefix = "*"
+  }
 }
 
 ##################################################
